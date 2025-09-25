@@ -1,0 +1,31 @@
+# Nginx, CORS, and SSL (Certbot)
+
+## Nginx Layout
+- Base config: `docker/nginx/nginx.conf`
+- Prod vhost: `docker/nginx/conf.d/api.conf` (`server_name prod.proproject.my`)
+- Dev vhost: `docker/nginx/conf.d/dev.conf` (`server_name dev.proproject.my`)
+
+## Routing
+- `/api/` → backend upstream (prod/dev app containers)
+- `/health` → `/actuator/health` upstream
+
+## CORS
+- Whitelist map (in `nginx.conf`) resolves `$cors_origin`:
+  - `https://app.proproject.my`
+  - `https://dev.app.proproject.my`
+  - `http://localhost(:port)`, `http://127.0.0.1(:port)`
+- Each vhost adds:
+  - `Access-Control-Allow-Origin: $cors_origin`
+  - `Vary: Origin`
+  - Preflight (OPTIONS) mirrors the same origin.
+
+## SSL (Let’s Encrypt)
+- Webroot: `/.well-known/acme-challenge/` served from `/var/www/certbot` over HTTP (port 80)
+- SAN certificate covers both domains: `-d prod.proproject.my -d dev.proproject.my`
+- Certificates stored under `/etc/letsencrypt/live/prod.proproject.my/`
+- Nginx mounts volumes: `letsencrypt`, `certbot-webroot`
+
+## Automation
+- main deploy issues/renews automatically and reloads Nginx.
+- Monthly renew workflow runs `certbot renew` and reloads Nginx.
+

@@ -1,0 +1,120 @@
+### Local Development Stack
+services:
+  # Spring Boot Application (Local)
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: aningcall-app-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/aningcall_dev?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=devpassword
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=devredis
+      - LOGGING_FILE_NAME=/app/logs/app.log
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aningcall-network
+    volumes:
+      - ../../logs:/app/logs
+    restart: unless-stopped
+
+  # MySQL Database (Local)
+  mysql:
+    image: mysql:8.0
+    container_name: aningcall-mysql-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: devpassword
+      MYSQL_DATABASE: aningcall_dev
+      MYSQL_USER: aningcall
+      MYSQL_PASSWORD: aningcall123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../mysql/init:/docker-entrypoint-initdb.d
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pdevpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - aningcall-network
+    restart: unless-stopped
+
+  # Redis Cache (Local)
+  redis:
+    image: redis:7.2-alpine
+    container_name: aningcall-redis-dev
+    command: redis-server --requirepass devredis --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    networks:
+      - aningcall-network
+    restart: unless-stopped
+
+  # phpMyAdmin for database management (Local)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: aningcall-phpmyadmin-dev
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: devpassword
+      MYSQL_ROOT_PASSWORD: devpassword
+    ports:
+      - "8081:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - aningcall-network
+    restart: unless-stopped
+
+  # Redis Commander for Redis management (Local)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: aningcall-redis-commander-dev
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:devredis
+    ports:
+      - "8082:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - aningcall-network
+    restart: unless-stopped
+
+networks:
+  aningcall-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local

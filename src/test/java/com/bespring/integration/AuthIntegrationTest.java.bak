@@ -1,0 +1,218 @@
+package com.bespring.integration;
+
+import com.bespring.domain.auth.dto.request.LoginRequest;
+import com.bespring.domain.auth.dto.request.RegisterRequest;
+import com.bespring.domain.user.entity.User;
+import com.bespring.domain.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.WebApplicationContext;
+
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@SpringBootTest
+@AutoConfigureWebMvc
+@ActiveProfiles("test")
+@Transactional
+@DisplayName("Auth 통합 테스트")
+class AuthIntegrationTest {
+
+    @Autowired
+    private WebApplicationContext context;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders
+                .webAppContextSetup(context)
+                .apply(springSecurity())
+                .build();
+
+        // 테스트용 사용자 데이터 초기화
+        userRepository.deleteAll();
+    }
+
+    @Test
+    @DisplayName("회원가입 전체 플로우 테스트")
+    void completeRegistrationFlow() throws Exception {
+        // Given
+        RegisterRequest registerRequest = RegisterRequest.builder()
+                .email("integration@test.com")
+                .password("password123")
+                .nickname("integrationUser")
+                .build();
+
+        // When & Then - 회원가입
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.user.email").value("integration@test.com"))
+                .andExpect(jsonPath("$.data.user.nickname").value("integrationUser"))
+                .andExpect(jsonPath("$.data.user.points").value(0))
+                .andExpect(jsonPath("$.data.token").exists());
+
+        // 데이터베이스에 사용자가 생성되었는지 확인
+        User savedUser = userRepository.findByEmail("integration@test.com").orElse(null);
+        assertNotNull(savedUser);
+        assertEquals("integration@test.com", savedUser.getEmail());
+        assertEquals("integrationUser", savedUser.getNickname());
+    }
+
+    @Test
+    @DisplayName("로그인 전체 플로우 테스트")
+    void completeLoginFlow() throws Exception {
+        // Given - 테스트용 사용자 미리 생성
+        User testUser = User.builder()
+                .email("login@test.com")
+                .passwordHash(passwordEncoder.encode("password123"))
+                .nickname("loginUser")
+                .points(50)
+                .selectedAvatar("avatar_2")
+                .build();
+        userRepository.save(testUser);
+
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("login@test.com")
+                .password("password123")
+                .build();
+
+        // When & Then - 로그인
+        mockMvc.perform(post("/api/auth/login")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.user.email").value("login@test.com"))
+                .andExpect(jsonPath("$.data.user.nickname").value("loginUser"))
+                .andExpect(jsonPath("$.data.user.points").value(50))
+                .andExpect(jsonPath("$.data.user.selectedAvatar").value("avatar_2"))
+                .andExpect(jsonPath("$.data.token").exists());
+    }
+
+    @Test
+    @DisplayName("중복 이메일 회원가입 실패 테스트")
+    void duplicateEmailRegistration() throws Exception {
+        // Given - 이미 존재하는 사용자
+        User existingUser = User.builder()
+                .email("duplicate@test.com")
+                .passwordHash(passwordEncoder.encode("password123"))
+                .nickname("existingUser")
+                .build();
+        userRepository.save(existingUser);
+
+        RegisterRequest registerRequest = RegisterRequest.builder()
+                .email("duplicate@test.com") // 중복 이메일
+                .password("newpassword123")
+                .nickname("newUser")
+                .build();
+
+        // When & Then - 중복 이메일로 회원가입 시도
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("중복 닉네임 회원가입 실패 테스트")
+    void duplicateNicknameRegistration() throws Exception {
+        // Given - 이미 존재하는 사용자
+        User existingUser = User.builder()
+                .email("existing@test.com")
+                .passwordHash(passwordEncoder.encode("password123"))
+                .nickname("duplicateNickname")
+                .build();
+        userRepository.save(existingUser);
+
+        RegisterRequest registerRequest = RegisterRequest.builder()
+                .email("new@test.com")
+                .password("password123")
+                .nickname("duplicateNickname") // 중복 닉네임
+                .build();
+
+        // When & Then - 중복 닉네임으로 회원가입 시도
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("잘못된 비밀번호로 로그인 실패 테스트")
+    void wrongPasswordLogin() throws Exception {
+        // Given - 테스트용 사용자 생성
+        User testUser = User.builder()
+                .email("wrongpass@test.com")
+                .passwordHash(passwordEncoder.encode("correctPassword"))
+                .nickname("testUser")
+                .build();
+        userRepository.save(testUser);
+
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("wrongpass@test.com")
+                .password("wrongPassword") // 잘못된 비밀번호
+                .build();
+
+        // When & Then - 잘못된 비밀번호로 로그인 시도
+        mockMvc.perform(post("/api/auth/login")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 사용자 로그인 실패 테스트")
+    void nonExistentUserLogin() throws Exception {
+        // Given
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("nonexistent@test.com")
+                .password("password123")
+                .build();
+
+        // When & Then - 존재하지 않는 사용자로 로그인 시도
+        mockMvc.perform(post("/api/auth/login")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isNotFound());
+    }
+
+    private void assertNotNull(User savedUser) {
+        assert savedUser != null;
+    }
+
+    private void assertEquals(String expected, String actual) {
+        assert expected.equals(actual);
+    }
+}
