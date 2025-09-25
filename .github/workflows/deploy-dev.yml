@@ -40,6 +40,7 @@ jobs:
           DB_USERNAME=${{ secrets.DB_USERNAME_DEV }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD_DEV }}
           JWT_SECRET=${{ secrets.JWT_SECRET_DEV }}
+          JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION_DEV || '86400000' }}
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_DEV }}
           EOF
 
@@ -102,6 +103,8 @@ jobs:
             docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
             docker network create aningcall-network || true
             cd "${{ secrets.REMOTE_PATH }}"
+            # Ensure logs directory is writable by app user (uid 1001)
+            mkdir -p logs && chown -R 1001:1001 logs || true
             docker compose --env-file docker/compose/.env -f docker/compose/dev.yml pull
             docker compose --env-file docker/compose/.env -f docker/compose/dev.yml up -d
             if docker compose --env-file docker/compose/.env -f docker/compose/dev.yml ps nginx >/dev/null 2>&1; then
