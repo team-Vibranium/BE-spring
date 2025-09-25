@@ -60,9 +60,11 @@ management:
 # OpenAPI/Swagger Configuration
 springdoc:
   api-docs:
-    path: /api-docs
+    # Place OpenAPI under /api so Nginx proxies it
+    path: /api/v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    # Serve Swagger UI under /api as well
+    path: /api/swagger-ui.html
     tags-sorter: alpha
     operations-sorter: method
   packages-to-scan: com.bespring

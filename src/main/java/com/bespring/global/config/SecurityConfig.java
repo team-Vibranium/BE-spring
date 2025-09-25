@@ -39,6 +39,10 @@ public class SecurityConfig {
                             "/actuator/**",
                             "/error",
                             // Swagger / OpenAPI
+                            "/api/swagger-ui.html",
+                            "/api/swagger-ui/**",
+                            "/api/v3/api-docs",
+                            "/api/v3/api-docs/**",
                             "/v3/api-docs/**",
                             "/swagger-ui.html",
                             "/swagger-ui/**"
