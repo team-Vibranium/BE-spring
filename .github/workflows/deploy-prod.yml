@@ -41,7 +41,7 @@ jobs:
           DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }}
           JWT_SECRET=${{ secrets.JWT_SECRET_PROD }}
           JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION_PROD || '86400000' }}
-          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_PROD }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_PROD || secrets.REDIS_PASSWORD }}
           EOF
 
       - name: Verify .env exists (prod)
@@ -51,6 +51,9 @@ jobs:
             echo "::error::.env not created. Check secrets (DB_URL_PROD, DB_USERNAME_PROD, DB_PASSWORD_PROD, JWT_SECRET_PROD)."; exit 1;
           fi
           sed -E 's/(=).*/=REDACTED/' docker/compose/.env
+          if ! grep -q '^REDIS_PASSWORD=' docker/compose/.env || [ -z "$(grep '^REDIS_PASSWORD=' docker/compose/.env | cut -d'=' -f2-)" ]; then
+            echo "::error::REDIS_PASSWORD is empty. Set REDIS_PASSWORD_PROD or REDIS_PASSWORD secret."; exit 1;
+          fi
 
       - name: Upload .env to server
         uses: appleboy/scp-action@v0.1.7

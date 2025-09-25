@@ -41,7 +41,7 @@ jobs:
           DB_PASSWORD=${{ secrets.DB_PASSWORD_DEV }}
           JWT_SECRET=${{ secrets.JWT_SECRET_DEV }}
           JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION_DEV || '86400000' }}
-          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_DEV }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_DEV || secrets.REDIS_PASSWORD || 'devredis' }}
           EOF
 
       - name: Verify .env exists (dev)
@@ -51,6 +51,9 @@ jobs:
             echo "::error::.env not created. Check secrets (DB_URL_DEV, DB_USERNAME_DEV, DB_PASSWORD_DEV, JWT_SECRET_DEV)."; exit 1;
           fi
           sed -E 's/(=).*/=REDACTED/' docker/compose/.env
+          if ! grep -q '^REDIS_PASSWORD=' docker/compose/.env || [ -z "$(grep '^REDIS_PASSWORD=' docker/compose/.env | cut -d'=' -f2-)" ]; then
+            echo "::warning::REDIS_PASSWORD is empty. Using default devredis at runtime.";
+          fi
 
       - name: Upload .env to server
         uses: appleboy/scp-action@v0.1.7
