@@ -1,0 +1,216 @@
+package com.bespring.domain.auth.controller;
+
+import com.bespring.domain.auth.dto.request.LoginRequest;
+import com.bespring.domain.auth.dto.request.RegisterRequest;
+import com.bespring.domain.auth.dto.response.AuthResponse;
+import com.bespring.domain.auth.service.AuthService;
+import com.bespring.global.exception.DuplicateResourceException;
+import com.bespring.global.exception.UserNotFoundException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@DisplayName("AuthController 테스트")
+@WebMvcTest(AuthController.class)
+class AuthControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private AuthService authService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private RegisterRequest registerRequest;
+    private LoginRequest loginRequest;
+    private AuthResponse authResponse;
+
+    @BeforeEach
+    void setUp() {
+        registerRequest = RegisterRequest.builder()
+                .email("test@example.com")
+                .password("password123")
+                .nickname("testUser")
+                .build();
+
+        loginRequest = LoginRequest.builder()
+                .email("test@example.com")
+                .password("password123")
+                .build();
+
+        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
+                .id(1L)
+                .email("test@example.com")
+                .nickname("testUser")
+                .points(0)
+                .selectedAvatar("avatar_1")
+                .build();
+
+        authResponse = AuthResponse.builder()
+                .user(userInfo)
+                .token("jwt-token")
+                .build();
+    }
+
+    @Test
+    @DisplayName("회원가입 성공 테스트")
+    void register_Success() throws Exception {
+        // Given
+        when(authService.register(any(RegisterRequest.class))).thenReturn(authResponse);
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("회원가입이 완료되었습니다."))
+                .andExpect(jsonPath("$.data.user.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.user.nickname").value("testUser"))
+                .andExpect(jsonPath("$.data.token").value("jwt-token"));
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 테스트 - 이메일 중복")
+    void register_DuplicateEmail() throws Exception {
+        // Given
+        when(authService.register(any(RegisterRequest.class)))
+                .thenThrow(new DuplicateResourceException("이미 존재하는 이메일입니다."));
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 테스트 - 유효성 검증 실패 (이메일)")
+    void register_InvalidEmail() throws Exception {
+        // Given
+        RegisterRequest invalidRequest = RegisterRequest.builder()
+                .email("invalid-email")
+                .password("password123")
+                .nickname("testUser")
+                .build();
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 테스트 - 유효성 검증 실패 (비밀번호)")
+    void register_InvalidPassword() throws Exception {
+        // Given
+        RegisterRequest invalidRequest = RegisterRequest.builder()
+                .email("test@example.com")
+                .password("123") // 너무 짧은 비밀번호
+                .nickname("testUser")
+                .build();
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("로그인 성공 테스트")
+    void login_Success() throws Exception {
+        // Given
+        when(authService.login(any(LoginRequest.class))).thenReturn(authResponse);
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/login")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("로그인이 완료되었습니다."))
+                .andExpect(jsonPath("$.data.user.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.token").value("jwt-token"));
+    }
+
+    @Test
+    @DisplayName("로그인 실패 테스트 - 사용자를 찾을 수 없음")
+    void login_UserNotFound() throws Exception {
+        // Given
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new UserNotFoundException("사용자를 찾을 수 없습니다."));
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/login")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("로그인 실패 테스트 - 잘못된 비밀번호")
+    void login_BadCredentials() throws Exception {
+        // Given
+        when(authService.login(any(LoginRequest.class)))
+                .thenThrow(new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/login")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("로그아웃 성공 테스트")
+    @WithMockUser
+    void logout_Success() throws Exception {
+        // When & Then
+        mockMvc.perform(post("/api/auth/logout")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .header("Authorization", "Bearer jwt-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("로그아웃이 완료되었습니다."));
+    }
+
+    @Test
+    @DisplayName("유효성 검증 실패 테스트 - 빈 요청")
+    void validation_EmptyRequest() throws Exception {
+        // Given
+        RegisterRequest emptyRequest = RegisterRequest.builder().build();
+
+        // When & Then
+        mockMvc.perform(post("/api/auth/register")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(emptyRequest)))
+                .andExpect(status().isBadRequest());
+    }
+}

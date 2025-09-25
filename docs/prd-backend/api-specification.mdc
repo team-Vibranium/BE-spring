@@ -1,0 +1,60 @@
+# AningCall REST API 명세서
+
+## 개요
+
+AningCall 앱의 REST API 명세서입니다. 알람은 로컬 OS에서 처리하고, 사용자 데이터, 포인트, 통계, 통화 기록 등은 서버 API를 통해 관리합니다.
+
+## 기본 정보
+
+- **Base URL**: `https://api.proproject.my`
+- **개발 환경**: `http://localhost:8080`
+- **Content-Type**: `application/json`
+- **인증**: Bearer Token
+
+## API 엔드포인트 목록
+
+### 1. 인증 (Authentication)
+- `POST /api/auth/register` - 회원가입
+- `POST /api/auth/login` - 로그인
+- `POST /api/auth/logout` - 로그아웃
+
+### 2. 사용자 관리 (User Management)
+- `GET /api/users/me` - 사용자 정보 조회
+- `PUT /api/users/me` - 사용자 정보 수정
+- `DELETE /api/users/me` - 회원탈퇴
+
+### 3. 포인트 시스템 (Point System)
+- `GET /api/points/summary` - 포인트 현황 조회
+- `GET /api/points/history` - 포인트 내역 조회
+- `POST /api/points/earn` - 포인트 획득
+- `POST /api/points/spend` - 포인트 사용
+
+### 4. 통화 기록 (Call Logs)
+- `POST /api/call-logs` - 통화 기록 생성
+- `GET /api/call-logs` - 통화 기록 조회
+
+### 5. 미션 결과 (Mission Results)
+- `POST /api/mission-results` - 미션 결과 저장
+- `GET /api/mission-results` - 미션 결과 조회
+
+### 6. 통계 (Statistics)
+- `GET /api/statistics/overview` - 전체 통계 조회
+- `GET /api/statistics/period` - 기간별 통계 조회
+- `GET /api/statistics/calendar` - 캘린더 통계 조회
+
+### 7. 에러 코드
+- `VALIDATION_ERROR` (400) - 입력값 검증 실패
+- `UNAUTHORIZED` (401) - 인증 실패
+- `FORBIDDEN` (403) - 권한 없음
+- `NOT_FOUND` (404) - 리소스를 찾을 수 없음
+- `CONFLICT` (409) - 리소스 충돌
+- `INSUFFICIENT_POINTS` (422) - 포인트 부족
+- `INTERNAL_SERVER_ERROR` (500) - 서버 내부 오류
+
+## 주요 변경사항
+- 기존 `/auth/signup` → `/api/auth/register`
+- 기존 `/auth/login` → `/api/auth/login`
+- 기존 `/alarms/result` → `/api/call-logs` (통화 기록으로 확장)
+- 기존 `/points/history` → `/api/points/` (포인트 시스템으로 확장)
+- 기존 `/missions/result` → `/api/mission-results`
+- 새로운 기능: 사용자 관리, 통계, 상세한 포인트 시스템

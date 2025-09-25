@@ -1,0 +1,237 @@
+package com.bespring.domain.points.service;
+
+import com.bespring.domain.points.dto.request.PointsEarnRequest;
+import com.bespring.domain.points.dto.request.PointsSpendRequest;
+import com.bespring.domain.points.dto.response.PointsSummaryResponse;
+import com.bespring.domain.points.entity.PointsHistory;
+import com.bespring.domain.points.repository.PointsHistoryRepository;
+import com.bespring.domain.user.entity.User;
+import com.bespring.domain.user.service.UserService;
+import com.bespring.global.exception.InsufficientPointsException;
+import com.bespring.global.exception.UserNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.*;
+
+@DisplayName("PointsService 테스트")
+@ExtendWith(MockitoExtension.class)
+class PointsServiceImplTest {
+
+    @Mock
+    private PointsHistoryRepository pointsHistoryRepository;
+
+    @Mock
+    private UserService userService;
+
+    @InjectMocks
+    private PointsServiceImpl pointsService;
+
+    private User mockUser;
+    private PointsEarnRequest earnRequest;
+    private PointsSpendRequest spendRequest;
+
+    @BeforeEach
+    void setUp() {
+        mockUser = User.builder()
+                .id(1L)
+                .email("test@example.com")
+                .nickname("testUser")
+                .points(100)
+                .build();
+
+        earnRequest = new PointsEarnRequest(
+                PointsHistory.PointType.GRADE,
+                50,
+                "미션 완료",
+                null
+        );
+
+        spendRequest = new PointsSpendRequest(
+                PointsHistory.PointType.CONSUMPTION,
+                30,
+                "아바타 구매",
+                null
+        );
+    }
+
+    @Test
+    @DisplayName("포인트 적립 성공 테스트")
+    void earnPoints_Success() {
+        // Given
+        when(userService.findById(1L)).thenReturn(mockUser);
+        when(pointsHistoryRepository.save(any(PointsHistory.class))).thenReturn(mock(PointsHistory.class));
+
+        // When
+        pointsService.earnPoints(1L, earnRequest);
+
+        // Then
+        assertEquals(150, mockUser.getPoints()); // 100 + 50
+        verify(userService).save(mockUser);
+        verify(pointsHistoryRepository).save(any(PointsHistory.class));
+    }
+
+    @Test
+    @DisplayName("포인트 적립 실패 테스트 - 사용자를 찾을 수 없음")
+    void earnPoints_UserNotFound() {
+        // Given
+        when(userService.findById(anyLong())).thenThrow(new UserNotFoundException("사용자를 찾을 수 없습니다."));
+
+        // When & Then
+        assertThrows(UserNotFoundException.class, () -> {
+            pointsService.earnPoints(1L, earnRequest);
+        });
+
+        verify(userService, never()).save(any());
+        verify(pointsHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("포인트 사용 성공 테스트")
+    void spendPoints_Success() {
+        // Given
+        when(userService.findById(1L)).thenReturn(mockUser);
+        when(pointsHistoryRepository.save(any(PointsHistory.class))).thenReturn(mock(PointsHistory.class));
+
+        // When
+        pointsService.spendPoints(1L, spendRequest);
+
+        // Then
+        assertEquals(70, mockUser.getPoints()); // 100 - 30
+        verify(userService).save(mockUser);
+        verify(pointsHistoryRepository).save(any(PointsHistory.class));
+    }
+
+    @Test
+    @DisplayName("포인트 사용 실패 테스트 - 포인트 부족")
+    void spendPoints_InsufficientPoints() {
+        // Given
+        PointsSpendRequest largeSpendRequest = PointsSpendRequest.builder()
+                .reason("비싼 아바타 구매")
+                .amount(150) // 보유 포인트보다 많음
+                .build();
+
+        when(userService.findById(1L)).thenReturn(mockUser);
+
+        // When & Then
+        assertThrows(InsufficientPointsException.class, () -> {
+            pointsService.spendPoints(1L, largeSpendRequest);
+        });
+
+        assertEquals(100, mockUser.getPoints()); // 포인트가 변경되지 않아야 함
+        verify(userService, never()).save(any());
+        verify(pointsHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("포인트 요약 조회 테스트")
+    void getPointsSummary_Success() {
+        // Given
+        when(userService.findById(1L)).thenReturn(mockUser);
+        when(pointsHistoryRepository.getTotalEarnedPoints(1L)).thenReturn(Optional.of(500));
+        when(pointsHistoryRepository.getTotalSpentPoints(1L)).thenReturn(Optional.of(400));
+
+        // When
+        PointsSummaryResponse response = pointsService.getPointsSummary(1L);
+
+        // Then
+        assertEquals(100, response.getCurrentPoints());
+        assertEquals(500, response.getTotalEarned());
+        assertEquals(400, response.getTotalSpent());
+    }
+
+    @Test
+    @DisplayName("포인트 요약 조회 테스트 - 히스토리가 없는 경우")
+    void getPointsSummary_NoHistory() {
+        // Given
+        when(userService.findById(1L)).thenReturn(mockUser);
+        when(pointsHistoryRepository.getTotalEarnedPoints(1L)).thenReturn(Optional.empty());
+        when(pointsHistoryRepository.getTotalSpentPoints(1L)).thenReturn(Optional.empty());
+
+        // When
+        PointsSummaryResponse response = pointsService.getPointsSummary(1L);
+
+        // Then
+        assertEquals(100, response.getCurrentPoints());
+        assertEquals(0, response.getTotalEarned());
+        assertEquals(0, response.getTotalSpent());
+    }
+
+    @Test
+    @DisplayName("포인트 히스토리 조회 테스트")
+    void getPointsHistory_Success() {
+        // Given
+        List<PointsHistory> mockHistory = List.of(
+                PointsHistory.builder()
+                        .user(mockUser)
+                        .amount(50)
+                        .type(PointsHistory.PointType.GRADE)
+                        .description("미션 완료")
+                        .build(),
+                PointsHistory.builder()
+                        .user(mockUser)
+                        .amount(-30)
+                        .type(PointsHistory.PointType.CONSUMPTION)
+                        .description("아바타 구매")
+                        .build()
+        );
+
+        when(pointsHistoryRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(mockHistory);
+
+        // When
+        List<PointsHistory> result = pointsService.getPointsHistory(1L);
+
+        // Then
+        assertEquals(2, result.size());
+        assertEquals(50, result.get(0).getAmount());
+        assertEquals(-30, result.get(1).getAmount());
+        verify(pointsHistoryRepository).findByUserIdOrderByCreatedAtDesc(1L);
+    }
+
+    @Test
+    @DisplayName("포인트 적립 시 히스토리 생성 확인")
+    void earnPoints_ShouldCreateCorrectHistory() {
+        // Given
+        when(userService.findById(1L)).thenReturn(mockUser);
+
+        // When
+        pointsService.earnPoints(1L, earnRequest);
+
+        // Then
+        verify(pointsHistoryRepository).save(argThat(history ->
+                history.getUser().getId().equals(1L) &&
+                history.getAmount().equals(50) &&
+                history.getType() == PointsHistory.PointType.GRADE &&
+                history.getDescription().equals("미션 완료")
+        ));
+    }
+
+    @Test
+    @DisplayName("포인트 사용 시 히스토리 생성 확인")
+    void spendPoints_ShouldCreateCorrectHistory() {
+        // Given
+        when(userService.findById(1L)).thenReturn(mockUser);
+
+        // When
+        pointsService.spendPoints(1L, spendRequest);
+
+        // Then
+        verify(pointsHistoryRepository).save(argThat(history ->
+                history.getUser().getId().equals(1L) &&
+                history.getAmount().equals(-30) &&
+                history.getType() == PointsHistory.PointType.CONSUMPTION &&
+                history.getDescription().equals("아바타 구매")
+        ));
+    }
+}

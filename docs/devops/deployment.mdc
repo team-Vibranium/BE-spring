@@ -1,0 +1,35 @@
+# Deployment Overview (EC2 + RDS + Docker Hub)
+
+## Topology
+- Single EC2 host runs prod and dev (staging) stacks via Docker Compose.
+- Single RDS (MySQL) instance with two databases (schemas): `aningcall_prod`, `aningcall_dev`.
+- Single Nginx container (prod stack) routes both domains.
+
+## Compose Files
+- `docker/compose/local.yml`: local dev (app build, mysql 3307, redis 6379, phpMyAdmin 8081, redis-commander 8082)
+- `docker/compose/dev.yml`: staging/dev server (app image + RDS dev + redis internal)
+- `docker/compose/prod.yml`: production (app image + RDS prod + redis internal + nginx + certbot)
+
+## Profiles
+- dev: `spring.jpa.hibernate.ddl-auto=update`
+- prod: `spring.jpa.hibernate.ddl-auto=validate`
+
+## Base URLs & Health
+- prod: `https://prod.proproject.my/api` (health: `/health`)
+- dev: `https://dev.proproject.my/api` (health: `/health`)
+
+## Nginx
+- Host-based routing:
+  - `prod.proproject.my` → upstream `aningcall-app-prod:8080`
+  - `dev.proproject.my` → upstream `aningcall-app-dev:8080`
+- CORS whitelist: localhost/127.0.0.1 (any port), `https://app.proproject.my`, `https://dev.app.proproject.my`
+
+## SSL (Certbot)
+- SAN certificate for both domains via webroot challenge.
+- Volumes: `/etc/letsencrypt`, `/var/www/certbot`
+- Nginx SSL path: `/etc/letsencrypt/live/prod.proproject.my/` (fullchain.pem, privkey.pem)
+
+## Logs
+- App file logs: `LOGGING_FILE_NAME=/app/logs/app.log` (mounted to `./logs`)
+- Nginx logs: `./logs/nginx`
+

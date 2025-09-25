@@ -1,0 +1,234 @@
+# API Contract - 상세 요청/응답 형식
+
+## 1. 인증 (Authentication)
+
+### 1.1 회원가입
+**POST /api/auth/register**
+
+Request:
+```json
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "nickname": "알람마스터"
+}
+```
+
+Response (201):
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "nickname": "알람마스터",
+      "points": 0,
+      "createdAt": "2024-01-15T09:00:00Z"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+### 1.2 로그인
+**POST /api/auth/login**
+
+Request:
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "nickname": "알람마스터",
+      "points": 1250,
+      "createdAt": "2024-01-15T09:00:00Z"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+## 2. 포인트 시스템
+
+### 2.1 포인트 획득
+**POST /api/points/earn**
+
+Request:
+```json
+{
+  "type": "GRADE",
+  "amount": 10,
+  "description": "알람 성공 보너스",
+  "relatedAlarmId": "alarm_123"
+}
+```
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "transaction": {
+      "id": 123,
+      "type": "GRADE",
+      "amount": 10,
+      "description": "알람 성공 보너스",
+      "createdAt": "2024-01-15T07:30:00Z",
+      "relatedAlarmId": "alarm_123"
+    },
+    "newBalance": {
+      "consumptionPoints": 850,
+      "gradePoints": 1260,
+      "totalPoints": 2110
+    }
+  }
+}
+```
+
+### 2.2 포인트 내역 조회
+**GET /api/points/history?type={type}&limit={limit}&offset={offset}**
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "transactions": [
+      {
+        "id": 1,
+        "type": "GRADE",
+        "amount": 10,
+        "description": "알람 성공 (등급 포인트)",
+        "createdAt": "2024-01-15T07:30:00Z",
+        "relatedAlarmId": "alarm_123"
+      },
+      {
+        "id": 2,
+        "type": "CONSUMPTION",
+        "amount": -50,
+        "description": "아바타 구매 (소비 포인트)",
+        "createdAt": "2024-01-14T15:20:00Z",
+        "relatedAlarmId": null
+      }
+    ],
+    "totalCount": 45,
+    "hasMore": true
+  }
+}
+```
+
+## 3. 통화 기록
+
+### 3.1 통화 기록 생성
+**POST /api/call-logs**
+
+Request:
+```json
+{
+  "callStart": "2024-01-15T07:30:00Z",
+  "callEnd": "2024-01-15T07:32:30Z",
+  "result": "SUCCESS",
+  "snoozeCount": 0
+}
+```
+
+Response (201):
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "userId": 1,
+    "callStart": "2024-01-15T07:30:00Z",
+    "callEnd": "2024-01-15T07:32:30Z",
+    "result": "SUCCESS",
+    "snoozeCount": 0
+  }
+}
+```
+
+## 4. 미션 결과
+
+### 4.1 미션 결과 저장
+**POST /api/mission-results**
+
+Request:
+```json
+{
+  "callLogId": 1,
+  "missionType": "PUZZLE",
+  "success": true
+}
+```
+
+Response (201):
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "callLogId": 1,
+    "missionType": "PUZZLE",
+    "success": true
+  }
+}
+```
+
+## 5. 통계
+
+### 5.1 전체 통계 조회
+**GET /api/statistics/overview**
+
+Response (200):
+```json
+{
+  "success": true,
+  "data": {
+    "totalAlarms": 45,
+    "successAlarms": 38,
+    "missedAlarms": 7,
+    "successRate": 84.4,
+    "consecutiveDays": 12,
+    "averageWakeTime": "07:15",
+    "last30DaysSuccessRate": 87,
+    "monthlySuccessRate": 85,
+    "monthlyPoints": 320
+  }
+}
+```
+
+## 6. 에러 응답 형식
+
+모든 에러 응답:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "입력값이 올바르지 않습니다.",
+    "details": {
+      "field": "email",
+      "reason": "이메일 형식이 올바르지 않습니다."
+    }
+  }
+}
+```
+
+## 7. 공통 헤더
+
+모든 보호된 엔드포인트:
+```
+Authorization: Bearer {token}
+Content-Type: application/json
+```

@@ -35,3 +35,15 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Environment Variables ###
+.env
+.env.local
+.env.*.local
+
+### Logs ###
+logs/
+!logs/.gitkeep
+logs/**
+!logs/nginx/
+!logs/nginx/.gitkeep

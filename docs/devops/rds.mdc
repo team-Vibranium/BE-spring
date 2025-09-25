@@ -1,0 +1,30 @@
+# RDS (MySQL) Setup
+
+## Databases (Schemas)
+- Create two databases (schemas):
+  - `aningcall_prod`
+  - `aningcall_dev`
+
+```sql
+CREATE DATABASE aningcall_prod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE aningcall_dev  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+## User & Grants (single admin user)
+```sql
+-- Create if needed
+CREATE USER 'admin'@'%' IDENTIFIED BY '<strong-password>';
+
+-- Grants per database
+GRANT ALL PRIVILEGES ON aningcall_prod.* TO 'admin'@'%';
+GRANT ALL PRIVILEGES ON aningcall_dev.*  TO 'admin'@'%';
+FLUSH PRIVILEGES;
+```
+
+## JDBC URLs
+- Prod: `jdbc:mysql://<rds-endpoint>:3306/aningcall_prod?useSSL=true&serverTimezone=UTC`
+- Dev:  `jdbc:mysql://<rds-endpoint>:3306/aningcall_dev?useSSL=true&serverTimezone=UTC`
+
+## Spring Profiles
+- dev: `spring.jpa.hibernate.ddl-auto=update`
+- prod: `spring.jpa.hibernate.ddl-auto=validate`
