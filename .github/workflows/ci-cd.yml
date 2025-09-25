@@ -22,7 +22,7 @@ jobs:
           MYSQL_ROOT_PASSWORD: testpassword
           MYSQL_DATABASE: aningcall_test
         ports:
-          - 3307:3306
+          - 3306:3306
         options: >-
           --health-cmd="mysqladmin ping -h localhost"
           --health-interval=10s
