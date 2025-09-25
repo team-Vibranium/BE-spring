@@ -79,6 +79,8 @@ services:
   nginx:
     image: nginx:alpine
     container_name: aningcall-nginx-prod
+    depends_on:
+      - app
     ports:
       - "80:80"
       - "443:443"
@@ -88,8 +90,6 @@ services:
       - letsencrypt:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot
       - ../../logs/nginx:/var/log/nginx
-    depends_on:
-      - app
     networks:
       - aningcall-network
     restart: unless-stopped
