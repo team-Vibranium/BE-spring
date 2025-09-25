@@ -90,12 +90,12 @@ jobs:
             docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
             docker network create aningcall-network || true
             cd "${{ secrets.REMOTE_PATH }}"
-            docker compose -f docker/compose/dev.yml pull
-            docker compose -f docker/compose/dev.yml up -d
+            docker compose --env-file docker/compose/.env -f docker/compose/dev.yml pull
+            docker compose --env-file docker/compose/.env -f docker/compose/dev.yml up -d
             # Reload Nginx if running in Docker
-            if docker compose -f docker/compose/dev.yml ps nginx >/dev/null 2>&1; then
-              docker compose -f docker/compose/dev.yml up -d nginx || true
-              docker compose -f docker/compose/dev.yml exec -T nginx nginx -t && docker compose -f docker/compose/dev.yml exec -T nginx nginx -s reload || true
+            if docker compose --env-file docker/compose/.env -f docker/compose/dev.yml ps nginx >/dev/null 2>&1; then
+              docker compose --env-file docker/compose/.env -f docker/compose/dev.yml up -d nginx || true
+              docker compose --env-file docker/compose/.env -f docker/compose/dev.yml exec -T nginx nginx -t && docker compose --env-file docker/compose/.env -f docker/compose/dev.yml exec -T nginx nginx -s reload || true
             else
               # Fallback: try common container names
               if docker ps --format '{{.Names}}' | grep -q '^aningcall-nginx-dev$'; then
