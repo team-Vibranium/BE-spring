@@ -36,6 +36,16 @@ jobs:
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_DEV }}
           EOF
 
+      - name: Verify .env exists (dev)
+        run: |
+          echo "Listing docker/compose" && ls -la docker/compose || true
+          if [ ! -s docker/compose/.env ]; then
+            echo "::error::.env not created. Check secrets (DB_URL_DEV, DB_USERNAME_DEV, DB_PASSWORD_DEV, JWT_SECRET_DEV)."
+            exit 1
+          fi
+          echo "Preview (values redacted):"
+          sed -E 's/(=).*/=REDACTED/' docker/compose/.env
+
       - name: Upload .env to server
         uses: appleboy/scp-action@v0.1.7
         with:
