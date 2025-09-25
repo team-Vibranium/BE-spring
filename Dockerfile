@@ -9,7 +9,8 @@ COPY build.gradle .
 COPY settings.gradle .
 
 # Download dependencies
-RUN ./gradlew dependencies --no-daemon
+# Ensure gradlew is executable (Windows checkouts lose +x)
+RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
 
 # Copy source code and build
 COPY src/ src/
