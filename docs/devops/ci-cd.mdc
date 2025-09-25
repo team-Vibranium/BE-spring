@@ -1,0 +1,25 @@
+# CI/CD Pipeline (GitHub Actions + Docker Hub + SSH)
+
+## Workflows
+- Build & Deploy: `.github/workflows/ci-cd.yml`
+  - Build image and push to Docker Hub with tags `${branch}-${sha}`
+  - develop → SSH deploy with `docker/compose/dev.yml`
+  - main → SSH deploy with `docker/compose/prod.yml` + certbot issue/renew + nginx reload
+- Monthly Certificate Renew: `.github/workflows/certbot-renew.yml`
+  - Runs monthly at 04:00 UTC on the 1st
+  - `certbot renew --webroot -w /var/www/certbot` then `nginx -s reload`
+
+## Required Secrets
+- Common: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SSH_HOST`, `SSH_USER`, `SSH_KEY`, `SSH_PORT`, `REMOTE_PATH`, `CERTBOT_EMAIL`
+- Dev: `DB_URL_DEV`, `DB_USERNAME_DEV`, `DB_PASSWORD_DEV`, `JWT_SECRET_DEV` `[REDIS_PASSWORD_DEV optional]`
+- Prod: `DB_URL_PROD`, `DB_USERNAME_PROD`, `DB_PASSWORD_PROD`, `JWT_SECRET_PROD`, `REDIS_PASSWORD_PROD`
+
+## Versioning
+- `VERSION=${{ github.ref_name }}-${{ github.sha }}` is written to `.env.*` on the server.
+- Compose references image: `${DOCKER_REGISTRY}aningcall-backend:${VERSION}`.
+
+## SSH Deploy
+- Ensures external network `aningcall-network` exists.
+- Creates `.env.dev` or `.env.prod` from Secrets, then copies to `.env`.
+- `docker compose -f <compose> pull && up -d`.
+

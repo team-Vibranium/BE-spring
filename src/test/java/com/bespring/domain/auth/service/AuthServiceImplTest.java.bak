@@ -1,0 +1,295 @@
+package com.bespring.domain.auth.service;
+
+import com.bespring.domain.auth.dto.request.LoginRequest;
+import com.bespring.domain.auth.dto.request.RegisterRequest;
+import com.bespring.domain.auth.dto.response.AuthResponse;
+import com.bespring.domain.user.entity.User;
+import com.bespring.domain.user.service.UserService;
+import com.bespring.global.exception.DuplicateResourceException;
+import com.bespring.global.exception.UserNotFoundException;
+import com.bespring.global.security.JwtUtil;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@DisplayName("AuthService 테스트")
+@ExtendWith(MockitoExtension.class)
+class AuthServiceImplTest {
+
+    @Mock
+    private UserService userService;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private JwtUtil jwtUtil;
+
+    @Mock
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
+    @InjectMocks
+    private AuthServiceImpl authService;
+
+    private RegisterRequest registerRequest;
+    private LoginRequest loginRequest;
+    private User mockUser;
+    private AuthResponse.UserInfo mockUserInfo;
+
+    @BeforeEach
+    void setUp() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
+        registerRequest = RegisterRequest.builder()
+                .email("test@example.com")
+                .password("password123")
+                .nickname("testUser")
+                .build();
+
+        loginRequest = LoginRequest.builder()
+                .email("test@example.com")
+                .password("password123")
+                .build();
+
+        mockUser = User.builder()
+                .id(1L)
+                .email("test@example.com")
+                .passwordHash("hashedPassword")
+                .nickname("testUser")
+                .points(0)
+                .selectedAvatar("avatar_1")
+                .build();
+
+        mockUserInfo = AuthResponse.UserInfo.builder()
+                .id(1L)
+                .email("test@example.com")
+                .nickname("testUser")
+                .points(0)
+                .selectedAvatar("avatar_1")
+                .build();
+    }
+
+    @Test
+    @DisplayName("회원가입 성공 테스트")
+    void register_Success() {
+        // Given
+        when(userService.existsByEmail(registerRequest.getEmail())).thenReturn(false);
+        when(userService.existsByNickname(registerRequest.getNickname())).thenReturn(false);
+        when(userService.register(registerRequest)).thenReturn(mockUserInfo);
+        when(jwtUtil.generateToken(mockUserInfo.getId())).thenReturn("jwt-token");
+
+        // When
+        AuthResponse response = authService.register(registerRequest);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(mockUserInfo, response.getUser());
+        assertEquals("jwt-token", response.getToken());
+
+        verify(userService).existsByEmail(registerRequest.getEmail());
+        verify(userService).existsByNickname(registerRequest.getNickname());
+        verify(userService).register(registerRequest);
+        verify(jwtUtil).generateToken(mockUserInfo.getId());
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 테스트 - 이메일 중복")
+    void register_DuplicateEmail_ShouldThrowException() {
+        // Given
+        when(userService.existsByEmail(registerRequest.getEmail())).thenReturn(true);
+
+        // When & Then
+        assertThrows(DuplicateResourceException.class, () -> {
+            authService.register(registerRequest);
+        });
+
+        verify(userService).existsByEmail(registerRequest.getEmail());
+        verify(userService, never()).existsByNickname(any());
+        verify(userService, never()).register(any());
+    }
+
+    @Test
+    @DisplayName("회원가입 실패 테스트 - 닉네임 중복")
+    void register_DuplicateNickname_ShouldThrowException() {
+        // Given
+        when(userService.existsByEmail(registerRequest.getEmail())).thenReturn(false);
+        when(userService.existsByNickname(registerRequest.getNickname())).thenReturn(true);
+
+        // When & Then
+        assertThrows(DuplicateResourceException.class, () -> {
+            authService.register(registerRequest);
+        });
+
+        verify(userService).existsByEmail(registerRequest.getEmail());
+        verify(userService).existsByNickname(registerRequest.getNickname());
+        verify(userService, never()).register(any());
+    }
+
+    @Test
+    @DisplayName("로그인 성공 테스트")
+    void login_Success() {
+        // Given
+        when(userService.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(mockUser));
+        when(passwordEncoder.matches(loginRequest.getPassword(), mockUser.getPasswordHash())).thenReturn(true);
+        when(userService.getUserInfo(mockUser.getId())).thenReturn(mockUserInfo);
+        when(jwtUtil.generateToken(mockUser.getId())).thenReturn("jwt-token");
+
+        // When
+        AuthResponse response = authService.login(loginRequest);
+
+        // Then
+        assertNotNull(response);
+        assertEquals(mockUserInfo, response.getUser());
+        assertEquals("jwt-token", response.getToken());
+
+        verify(userService).findByEmail(loginRequest.getEmail());
+        verify(passwordEncoder).matches(loginRequest.getPassword(), mockUser.getPasswordHash());
+        verify(userService).getUserInfo(mockUser.getId());
+        verify(jwtUtil).generateToken(mockUser.getId());
+    }
+
+    @Test
+    @DisplayName("로그인 실패 테스트 - 사용자를 찾을 수 없음")
+    void login_UserNotFound_ShouldThrowException() {
+        // Given
+        when(userService.findByEmail(loginRequest.getEmail())).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(UserNotFoundException.class, () -> {
+            authService.login(loginRequest);
+        });
+
+        verify(userService).findByEmail(loginRequest.getEmail());
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    @DisplayName("로그인 실패 테스트 - 비밀번호 불일치")
+    void login_WrongPassword_ShouldThrowException() {
+        // Given
+        when(userService.findByEmail(loginRequest.getEmail())).thenReturn(Optional.of(mockUser));
+        when(passwordEncoder.matches(loginRequest.getPassword(), mockUser.getPasswordHash())).thenReturn(false);
+
+        // When & Then
+        assertThrows(BadCredentialsException.class, () -> {
+            authService.login(loginRequest);
+        });
+
+        verify(userService).findByEmail(loginRequest.getEmail());
+        verify(passwordEncoder).matches(loginRequest.getPassword(), mockUser.getPasswordHash());
+        verify(userService, never()).getUserInfo(any());
+    }
+
+    @Test
+    @DisplayName("로그아웃 테스트")
+    void logout_ShouldBlacklistToken() {
+        // Given
+        String token = "jwt-token";
+
+        // When
+        authService.logout(token);
+
+        // Then
+        verify(valueOperations).set(
+                eq("blacklist:" + token),
+                eq("blacklisted"),
+                eq(24 * 60 * 60L),
+                eq(TimeUnit.SECONDS)
+        );
+    }
+
+    @Test
+    @DisplayName("로그아웃 테스트 - null 토큰")
+    void logout_WithNullToken_ShouldNotBlacklist() {
+        // When
+        authService.logout(null);
+
+        // Then
+        verify(valueOperations, never()).set(any(), any(), anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("토큰 유효성 검증 테스트 - 블랙리스트된 토큰")
+    void isTokenValid_BlacklistedToken_ShouldReturnFalse() {
+        // Given
+        String token = "jwt-token";
+        when(valueOperations.get("blacklist:" + token)).thenReturn("blacklisted");
+
+        // When
+        boolean isValid = authService.isTokenValid(token);
+
+        // Then
+        assertFalse(isValid);
+        verify(valueOperations).get("blacklist:" + token);
+        verify(jwtUtil, never()).isTokenValid(any());
+    }
+
+    @Test
+    @DisplayName("토큰 유효성 검증 테스트 - 유효한 토큰")
+    void isTokenValid_ValidToken_ShouldReturnTrue() {
+        // Given
+        String token = "jwt-token";
+        when(valueOperations.get("blacklist:" + token)).thenReturn(null);
+        when(jwtUtil.isTokenValid(token)).thenReturn(true);
+
+        // When
+        boolean isValid = authService.isTokenValid(token);
+
+        // Then
+        assertTrue(isValid);
+        verify(valueOperations).get("blacklist:" + token);
+        verify(jwtUtil).isTokenValid(token);
+    }
+
+    @Test
+    @DisplayName("토큰에서 사용자 ID 추출 테스트")
+    void getUserIdFromToken_ValidToken_ShouldReturnUserId() {
+        // Given
+        String token = "jwt-token";
+        Long userId = 1L;
+        when(valueOperations.get("blacklist:" + token)).thenReturn(null);
+        when(jwtUtil.isTokenValid(token)).thenReturn(true);
+        when(jwtUtil.getUserIdFromToken(token)).thenReturn(userId);
+
+        // When
+        Long extractedUserId = authService.getUserIdFromToken(token);
+
+        // Then
+        assertEquals(userId, extractedUserId);
+        verify(jwtUtil).getUserIdFromToken(token);
+    }
+
+    @Test
+    @DisplayName("토큰에서 사용자 ID 추출 테스트 - 유효하지 않은 토큰")
+    void getUserIdFromToken_InvalidToken_ShouldReturnNull() {
+        // Given
+        String token = "jwt-token";
+        when(valueOperations.get("blacklist:" + token)).thenReturn(null);
+        when(jwtUtil.isTokenValid(token)).thenReturn(false);
+
+        // When
+        Long extractedUserId = authService.getUserIdFromToken(token);
+
+        // Then
+        assertNull(extractedUserId);
+        verify(jwtUtil, never()).getUserIdFromToken(any());
+    }
+}
