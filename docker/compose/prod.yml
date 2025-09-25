@@ -48,12 +48,14 @@ services:
       --appendfsync everysec
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
       - ../redis/redis.conf:/etc/redis/redis.conf
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" --no-auth-warning PING | grep PONG"]
+      interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
