@@ -108,7 +108,10 @@ jobs:
               docker compose --env-file docker/compose/.env -f docker/compose/dev.yml up -d nginx || true
               docker compose --env-file docker/compose/.env -f docker/compose/dev.yml exec -T nginx nginx -t && docker compose --env-file docker/compose/.env -f docker/compose/dev.yml exec -T nginx nginx -s reload || true
             else
-              if docker ps --format '{{.Names}}' | grep -q '^aningcall-nginx-dev$'; then
-                docker exec -t aningcall-nginx-dev nginx -t && docker exec -t aningcall-nginx-dev nginx -s reload || true
+              # Try reloading the prod nginx (shared nginx container serves dev + prod)
+              if docker compose -f docker/compose/prod.yml ps nginx >/dev/null 2>&1; then
+                docker compose -f docker/compose/prod.yml exec -T nginx nginx -t && docker compose -f docker/compose/prod.yml exec -T nginx nginx -s reload || true
+              elif docker ps --format '{{.Names}}' | grep -q '^aningcall-nginx-prod$'; then
+                docker exec -t aningcall-nginx-prod nginx -t && docker exec -t aningcall-nginx-prod nginx -s reload || true
               fi
             fi
