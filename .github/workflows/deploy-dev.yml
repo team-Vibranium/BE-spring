@@ -56,15 +56,28 @@ jobs:
           target: "${{ secrets.REMOTE_PATH }}/docker/compose/"
 
       - name: Upload Nginx config (dev)
+        run: |
+          ls -la docker/nginx || true
+          ls -la docker/nginx/conf.d || true
+        shell: bash
+
+      - name: Upload nginx.conf (dev)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: |
-            docker/nginx/nginx.conf
-            docker/nginx/conf.d/dev.conf
+          source: "docker/nginx/nginx.conf"
           target: "${{ secrets.REMOTE_PATH }}/docker/nginx/"
+
+      - name: Upload dev.conf (dev)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker/nginx/conf.d/dev.conf"
+          target: "${{ secrets.REMOTE_PATH }}/docker/nginx/conf.d/"
 
       - name: Deploy on server (compose up)
         uses: appleboy/ssh-action@v0.1.10
