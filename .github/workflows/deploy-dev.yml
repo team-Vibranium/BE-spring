@@ -95,6 +95,15 @@ jobs:
           source: "docker/nginx/conf.d/dev.conf"
           target: "${{ secrets.REMOTE_PATH }}/"
 
+      - name: Upload api.conf (shared nginx)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker/nginx/conf.d/api.conf"
+          target: "${{ secrets.REMOTE_PATH }}/"
+
       - name: Deploy on server (compose up)
         uses: appleboy/ssh-action@v0.1.10
         with:
