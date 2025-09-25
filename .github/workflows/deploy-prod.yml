@@ -58,7 +58,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: "docker/compose/.env"
-          target: "${{ secrets.REMOTE_PATH }}/docker/compose/"
+          target: "${{ secrets.REMOTE_PATH }}/"
 
       - name: Verify .env on server
         uses: appleboy/ssh-action@v0.1.10
@@ -80,7 +80,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: "docker/nginx/nginx.conf"
-          target: "${{ secrets.REMOTE_PATH }}/docker/nginx/"
+          target: "${{ secrets.REMOTE_PATH }}/"
 
       - name: Upload api.conf (prod)
         uses: appleboy/scp-action@v0.1.7
@@ -89,7 +89,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: "docker/nginx/conf.d/api.conf"
-          target: "${{ secrets.REMOTE_PATH }}/docker/nginx/conf.d/"
+          target: "${{ secrets.REMOTE_PATH }}/"
 
       - name: Deploy on server (compose up)
         uses: appleboy/ssh-action@v0.1.10
