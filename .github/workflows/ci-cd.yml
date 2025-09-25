@@ -12,34 +12,34 @@ env:
 
 jobs:
   # 테스트 및 빌드 검증
-  test:
-    runs-on: ubuntu-latest
+test:
+  runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: testpassword
-          MYSQL_DATABASE: aningcall_test
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+  services:
+    mysql:
+      image: mysql:8.0
+      env:
+        MYSQL_ROOT_PASSWORD: testpassword
+        MYSQL_DATABASE: aningcall_test
+      ports:
+        - 3306:3306
+      options: >-
+        --health-cmd="mysqladmin ping -h localhost"
+        --health-interval=10s
+        --health-timeout=5s
+        --health-retries=5
 
-      redis:
-        image: redis:7.2-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+    redis:
+      image: redis:7.2-alpine
+      ports:
+        - 6379:6379
+      options: >-
+        --health-cmd="redis-cli ping"
+        --health-interval=10s
+        --health-timeout=5s
+        --health-retries=5
 
-    steps:
+  steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -64,7 +64,7 @@ jobs:
 
     - name: Wait for MySQL to be ready
       run: |
-        until mysqladmin ping -h localhost -P 3306 -u root -ptestpassword --silent; do
+        until mysqladmin ping -h mysql -P 3306 -u root -ptestpassword --silent; do
           echo 'Waiting for MySQL...'
           sleep 2
         done
@@ -74,13 +74,13 @@ jobs:
       run: ./gradlew test
       env:
         SPRING_PROFILES_ACTIVE: test
-        SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/aningcall_test
+        SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/aningcall_test
         SPRING_DATASOURCE_USERNAME: root
         SPRING_DATASOURCE_PASSWORD: testpassword
         SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
         SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
         SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
-        SPRING_REDIS_HOST: localhost
+        SPRING_REDIS_HOST: redis
         SPRING_REDIS_PORT: 6379
 
     - name: Upload test results
