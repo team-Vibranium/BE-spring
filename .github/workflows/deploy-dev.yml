@@ -1,0 +1,81 @@
+name: Deploy (Dev)
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: aningcall-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute VERSION
+        id: ver
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Create .env for docker/compose (dev)
+        run: |
+          mkdir -p docker/compose
+          cat <<'EOF' > docker/compose/.env
+          # Image registry prefix and version tag for compose
+          DOCKER_REGISTRY=${{ secrets.DOCKERHUB_USERNAME }}/
+          VERSION=${{ steps.ver.outputs.VERSION }}
+
+          # Application secrets (Dev)
+          DB_URL=${{ secrets.DB_URL_DEV }}
+          DB_USERNAME=${{ secrets.DB_USERNAME_DEV }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD_DEV }}
+          JWT_SECRET=${{ secrets.JWT_SECRET_DEV }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_DEV }}
+          EOF
+
+      - name: Upload .env to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker/compose/.env"
+          target: "${{ secrets.REMOTE_PATH }}/docker/compose/"
+
+      - name: Upload Nginx config (dev)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: |
+            docker/nginx/nginx.conf
+            docker/nginx/conf.d/dev.conf
+          target: "${{ secrets.REMOTE_PATH }}/docker/nginx/"
+
+      - name: Deploy on server (compose up)
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+            docker network create aningcall-network || true
+            cd "${{ secrets.REMOTE_PATH }}"
+            docker compose -f docker/compose/dev.yml pull
+            docker compose -f docker/compose/dev.yml up -d
+            # Reload Nginx if running in Docker
+            if docker compose -f docker/compose/dev.yml ps nginx >/dev/null 2>&1; then
+              docker compose -f docker/compose/dev.yml up -d nginx || true
+              docker compose -f docker/compose/dev.yml exec -T nginx nginx -t && docker compose -f docker/compose/dev.yml exec -T nginx nginx -s reload || true
+            else
+              # Fallback: try common container names
+              if docker ps --format '{{.Names}}' | grep -q '^aningcall-nginx-dev$'; then
+                docker exec -t aningcall-nginx-dev nginx -t && docker exec -t aningcall-nginx-dev nginx -s reload || true
+              fi
+            fi

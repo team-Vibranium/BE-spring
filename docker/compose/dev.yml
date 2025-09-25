@@ -5,13 +5,13 @@ services:
     container_name: aningcall-app-dev
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_DATASOURCE_URL=${DB_URL}
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_DATASOURCE_URL=${DB_URL?required}
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME?required}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD?required}
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
-      - SPRING_REDIS_PASSWORD=devredis
-      - JWT_SECRET=${JWT_SECRET}
+      - SPRING_REDIS_PASSWORD=${REDIS_PASSWORD:-devredis}
+      - JWT_SECRET=${JWT_SECRET?required}
       - LOGGING_FILE_NAME=/app/logs/app.log
     depends_on:
       redis:
