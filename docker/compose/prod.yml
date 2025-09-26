@@ -89,6 +89,7 @@ services:
       - ../nginx/conf.d:/etc/nginx/conf.d
       - letsencrypt:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       - ../../logs/nginx:/var/log/nginx
     networks:
       - aningcall-network
@@ -105,6 +106,7 @@ services:
     volumes:
       - letsencrypt:/etc/letsencrypt
       - certbot-webroot:/var/www/certbot
+      - /etc/letsencrypt:/etc/letsencrypt
     entrypoint: /bin/sh -c
     command: |
       echo 'Certbot helper container. Use compose run to issue/renew certificates.'
