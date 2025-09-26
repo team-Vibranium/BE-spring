@@ -9,8 +9,8 @@ COPY build.gradle .
 COPY settings.gradle .
 
 # Download dependencies
-# Ensure gradlew is executable (Windows checkouts lose +x)
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
+# Normalize Windows line-endings and ensure gradlew is executable
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && ./gradlew dependencies --no-daemon
 
 # Copy source code and build
 COPY src/ src/
