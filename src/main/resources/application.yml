@@ -4,6 +4,10 @@ spring:
   application:
     name: bespring-backend
 
+# Ensure HTTPS scheme is honored behind reverse proxy (Nginx)
+server:
+  forward-headers-strategy: framework
+
 ---
 # Local Development Profile
 spring:
