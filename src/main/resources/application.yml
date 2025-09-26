@@ -71,6 +71,8 @@ springdoc:
     path: /api/swagger-ui.html
     tags-sorter: alpha
     operations-sorter: method
+  # Only document API endpoints under /api/**
+  paths-to-match: /api/**
   packages-to-scan: com.bespring
   show-actuator: false
 
