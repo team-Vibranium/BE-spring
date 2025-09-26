@@ -38,6 +38,9 @@ public class SecurityConfig {
                             "/api/auth/**",
                             "/actuator/**",
                             "/error",
+                            // Swagger extension-less redirects
+                            "/api/swagger-ui",
+                            "/swagger-ui",
                             // Swagger / OpenAPI
                             "/api/swagger-ui.html",
                             "/api/swagger-ui/**",
