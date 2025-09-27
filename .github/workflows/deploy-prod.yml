@@ -1,0 +1,113 @@
+name: Deploy (Prod)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: aningcall-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute VERSION
+        id: ver
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare remote directories
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            mkdir -p "${{ secrets.REMOTE_PATH }}/docker/compose" \
+                     "${{ secrets.REMOTE_PATH }}/docker/nginx/conf.d" \
+                     "${{ secrets.REMOTE_PATH }}/logs"
+
+      - name: Create .env for docker/compose (prod)
+        run: |
+          mkdir -p docker/compose
+          cat <<'EOF' > docker/compose/.env
+          DOCKER_REGISTRY=${{ secrets.DOCKERHUB_USERNAME }}/
+          VERSION=${{ steps.ver.outputs.VERSION }}
+          DB_URL=${{ secrets.DB_URL_PROD }}
+          DB_USERNAME=${{ secrets.DB_USERNAME_PROD }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD_PROD }}
+          JWT_SECRET=${{ secrets.JWT_SECRET_PROD }}
+          JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION_PROD || '86400000' }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_PROD || secrets.REDIS_PASSWORD }}
+          EOF
+
+      - name: Verify .env exists (prod)
+        run: |
+          ls -la docker/compose || true
+          if [ ! -s docker/compose/.env ]; then
+            echo "::error::.env not created. Check secrets (DB_URL_PROD, DB_USERNAME_PROD, DB_PASSWORD_PROD, JWT_SECRET_PROD)."; exit 1;
+          fi
+          sed -E 's/(=).*/=REDACTED/' docker/compose/.env
+          if ! grep -q '^REDIS_PASSWORD=' docker/compose/.env || [ -z "$(grep '^REDIS_PASSWORD=' docker/compose/.env | cut -d'=' -f2-)" ]; then
+            echo "::error::REDIS_PASSWORD is empty. Set REDIS_PASSWORD_PROD or REDIS_PASSWORD secret."; exit 1;
+          fi
+
+      - name: Upload .env to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker/compose/.env"
+          target: "${{ secrets.REMOTE_PATH }}/"
+
+      - name: Verify .env on server
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            ls -la "${{ secrets.REMOTE_PATH }}/docker/compose" || true
+            if [ ! -s "${{ secrets.REMOTE_PATH }}/docker/compose/.env" ]; then
+              echo "Missing .env on server at ${{ secrets.REMOTE_PATH }}/docker/compose/.env" >&2; exit 1;
+            fi
+
+      - name: Upload nginx.conf (prod)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker/nginx/nginx.conf"
+          target: "${{ secrets.REMOTE_PATH }}/"
+
+      - name: Upload api.conf (prod)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker/nginx/conf.d/api.conf"
+          target: "${{ secrets.REMOTE_PATH }}/"
+
+      - name: Deploy on server (compose up)
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+            docker network create aningcall-network || true
+            cd "${{ secrets.REMOTE_PATH }}"
+            docker compose --env-file docker/compose/.env -f docker/compose/prod.yml pull
+            docker compose --env-file docker/compose/.env -f docker/compose/prod.yml up -d
+            docker compose --env-file docker/compose/.env -f docker/compose/prod.yml up -d nginx || true
+            docker compose --env-file docker/compose/.env -f docker/compose/prod.yml exec -T nginx nginx -t && docker compose --env-file docker/compose/.env -f docker/compose/prod.yml exec -T nginx nginx -s reload || true
