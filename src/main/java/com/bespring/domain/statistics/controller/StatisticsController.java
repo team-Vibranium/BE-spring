@@ -65,9 +65,9 @@ public class StatisticsController {
     public ResponseEntity<ApiResponse<StatisticsService.PeriodStats>> getPeriodStats(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Parameter(description = "시작 날짜 (YYYY-MM-DD)")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = true) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @Parameter(description = "종료 날짜 (YYYY-MM-DD)")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @RequestParam(required = true) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
         Long userId = userPrincipal.getUserId();
         StatisticsService.PeriodStats stats = statisticsService.getPeriodStats(userId, startDate, endDate);
@@ -89,9 +89,9 @@ public class StatisticsController {
     public ResponseEntity<ApiResponse<StatisticsService.CalendarStats>> getCalendarStats(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Parameter(description = "년도 (YYYY)")
-            @RequestParam int year,
+            @RequestParam(required = true) int year,
             @Parameter(description = "월 (1-12)")
-            @RequestParam int month) {
+            @RequestParam(required = true) int month) {
 
         Long userId = userPrincipal.getUserId();
         StatisticsService.CalendarStats stats = statisticsService.getCalendarStats(userId, year, month);

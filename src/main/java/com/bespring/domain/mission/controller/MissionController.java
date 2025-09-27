@@ -67,7 +67,7 @@ public class MissionController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<MissionResult>>> getMissionResults(
             @Parameter(description = "통화 기록 ID")
-            @RequestParam Long callLogId) {
+            @RequestParam(required = true) Long callLogId) {
 
         List<MissionResult> missionResults = missionService.getMissionResults(callLogId);
 
