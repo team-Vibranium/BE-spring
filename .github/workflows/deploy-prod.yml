@@ -43,6 +43,8 @@ jobs:
           JWT_SECRET=${{ secrets.JWT_SECRET_PROD }}
           JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION_PROD || '86400000' }}
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD_PROD || secrets.REDIS_PASSWORD }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_URL=${{ secrets.OPENAI_API_URL || 'https://api.openai.com/v1/realtime/sessions' }}
           EOF
 
       - name: Verify .env exists (prod)

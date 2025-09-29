@@ -137,6 +137,25 @@ public class CallLogServiceImpl implements CallLogService {
         return callLogRepository.countSuccessByUserAfterDate(user, date);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public int getCurrentCallSnoozeCount(Long userId) {
+        try {
+            // 현재 진행 중인 통화 (callEnd가 null인 통화) 조회
+            Optional<CallLog> currentCall = callLogRepository.findByUserIdAndCallEndIsNull(userId);
+
+            if (currentCall.isPresent()) {
+                return currentCall.get().getSnoozeCount();
+            }
+
+            // 진행 중인 통화가 없으면 0 반환
+            return 0;
+        } catch (Exception e) {
+            log.warn("Failed to get current call snooze count for user {}: {}", userId, e.getMessage());
+            return 0;
+        }
+    }
+
     private User getUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));

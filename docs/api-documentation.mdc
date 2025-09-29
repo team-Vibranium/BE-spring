@@ -1,0 +1,128 @@
+# AningCall Backend API Documentation
+
+## 📱 Frontend Integration Guide
+
+### Base URL
+```
+https://api.aningcall.com
+```
+
+### 인증
+모든 API는 JWT Bearer 토큰 인증이 필요합니다.
+```
+Authorization: Bearer {JWT_TOKEN}
+```
+
+---
+
+## 🔔 알람 관리 API
+
+### 1. 알람 생성
+```http
+POST /api/alarms
+Content-Type: application/json
+
+{
+  "alarmTime": "2024-01-15T07:30:00",
+  "instructions": "부드럽게 깨워주세요",
+  "voice": "ALLOY"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "alarmId": 123,
+    "alarmTime": "2024-01-15T07:30:00",
+    "instructions": "부드럽게 깨워주세요",
+    "voice": "ALLOY",
+    "voiceDescription": "균형 잡힌 중성적 목소리",
+    "active": true,
+    "createdAt": "2024-01-15T06:00:00",
+    "updatedAt": "2024-01-15T06:00:00"
+  }
+}
+```
+
+### 2. 알람 목록 조회
+```http
+GET /api/alarms?activeOnly=true
+```
+
+### 3. 특정 알람 조회
+```http
+GET /api/alarms/{alarmId}
+```
+
+### 4. 알람 수정
+```http
+PUT /api/alarms/{alarmId}
+```
+
+### 5. 알람 삭제
+```http
+DELETE /api/alarms/{alarmId}
+```
+
+---
+
+## 📞 OpenAI Realtime API
+
+### 세션 생성 (통화 시작)
+```http
+POST /api/realtime/session?alarmId={alarmId}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "ephemeralKey": "eph_abc123...",
+    "callLogId": 456,
+    "instructions": "부드럽게 깨워주세요",
+    "voice": "alloy"
+  }
+}
+```
+
+### Flutter 연동 순서
+1. 이 API로 ephemeralKey 받기
+2. ephemeralKey로 OpenAI Realtime API 직접 연결
+3. WebRTC 음성 통화 진행
+4. 통화 종료 후 conversation data를 백엔드로 전송
+
+---
+
+## 🎵 음성 타입 옵션
+
+| 코드 | 설명 |
+|------|------|
+| `ALLOY` | 균형 잡힌 중성적 목소리 |
+| `ASH` | 부드럽고 따뜻한 목소리 |
+| `BALLAD` | 차분하고 서정적인 목소리 |
+| `CORAL` | 밝고 친근한 목소리 |
+| `ECHO` | 깊고 울림이 있는 목소리 |
+| `SAGE` | 지혜롭고 안정적인 목소리 |
+| `SHIMMER` | 반짝이는 활기찬 목소리 |
+| `VERSE` | 리드미컬하고 표현력 좋은 목소리 |
+
+---
+
+## ⚠️ 에러 처리
+
+**에러 응답 형식:**
+```json
+{
+  "success": false,
+  "errorCode": "ALARM_NOT_FOUND",
+  "message": "알람을 찾을 수 없습니다.",
+  "timestamp": "2024-01-15T07:30:00"
+}
+```
+
+**주요 에러 코드:**
+- `USER_NOT_FOUND`, `ALARM_NOT_FOUND`, `UNAUTHORIZED_ALARM_ACCESS`
+- `ACTIVE_CALL_EXISTS`, `CALL_NOT_FOUND`, `OPENAI_API_ERROR`

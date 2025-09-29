@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CallLogRepository extends JpaRepository<CallLog, Long> {
@@ -52,4 +53,14 @@ public interface CallLogRepository extends JpaRepository<CallLog, Long> {
 
     @Query("SELECT c FROM CallLog c WHERE c.user = :user ORDER BY c.callStart DESC")
     List<CallLog> findRecentByUser(@Param("user") User user, Pageable pageable);
+
+    // 현재 진행 중인 통화 조회 (callEnd가 null인 통화)
+    @Query("SELECT c FROM CallLog c WHERE c.user.id = :userId AND c.callEnd IS NULL")
+    Optional<CallLog> findByUserIdAndCallEndIsNull(@Param("userId") Long userId);
+
+    // 사용자의 진행 중인 통화 존재 여부 확인
+    boolean existsByUserIdAndCallEndIsNull(Long userId);
+
+    // 특정 통화 조회 (사용자 검증 포함)
+    Optional<CallLog> findByIdAndUserId(Long callId, Long userId);
 }
