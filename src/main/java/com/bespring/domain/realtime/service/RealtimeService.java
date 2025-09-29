@@ -58,8 +58,8 @@ public class RealtimeService {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", "gpt-4o-realtime-preview-2024-12-17");
 
-        // Realtime API expects an array of modality strings (e.g., ["audio"], ["text","audio"]) not a map
-        requestBody.put("modalities", java.util.List.of("audio"));
+        // Realtime API supports only ["text"] or ["audio","text"]
+        requestBody.put("modalities", java.util.List.of("audio", "text"));
 
         requestBody.put("voice", voice);
         requestBody.put("instructions", instructions);
@@ -71,6 +71,14 @@ public class RealtimeService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(openaiApiKey);
         headers.add("OpenAI-Beta", "realtime=v1");
+
+        // Debug: log request
+        try {
+            log.info("Calling OpenAI Realtime sessions API: {}", openaiApiUrl);
+            log.info("OpenAI request body: {}", objectMapper.writeValueAsString(requestBody));
+        } catch (Exception ignore) {
+            log.warn("Failed to serialize OpenAI request body for logging");
+        }
 
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
