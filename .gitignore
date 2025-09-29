@@ -46,3 +46,4 @@ logs/
 logs/**
 !logs/nginx/
 !logs/nginx/.gitkeep
+.history
