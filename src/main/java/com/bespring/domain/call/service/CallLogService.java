@@ -27,4 +27,7 @@ public interface CallLogService {
     Long getCallCountAfterDate(Long userId, LocalDateTime date);
 
     Long getSuccessCallCountAfterDate(Long userId, LocalDateTime date);
+
+    // 현재 진행 중인 통화의 스누즈 횟수 조회
+    int getCurrentCallSnoozeCount(Long userId);
 }

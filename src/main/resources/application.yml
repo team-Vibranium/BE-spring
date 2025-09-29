@@ -8,6 +8,12 @@ spring:
 server:
   forward-headers-strategy: framework
 
+# OpenAI configuration (used by RealtimeService)
+openai:
+  api:
+    key: ${OPENAI_API_KEY:demo_key}
+    url: ${OPENAI_API_URL:https://api.openai.com/v1/realtime/sessions}
+
 ---
 # Local Development Profile
 spring:
@@ -16,25 +22,26 @@ spring:
       on-profile: local
 
   datasource:
-    url: ${DB_URL:jdbc:h2:mem:testdb}
-    driver-class-name: ${DB_DRIVER:org.h2.Driver}
-    username: ${DB_USERNAME:sa}
-    password: ${DB_PASSWORD:}
+    # Connect to local Docker MySQL (host-mapped to 3307)
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/aningcall_dev?useSSL=false}
+    driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:devpassword}
 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.MySQL8Dialect
 
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:devredis}
       timeout: ${REDIS_TIMEOUT:2000ms}
       database: ${REDIS_DATABASE:0}
 

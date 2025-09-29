@@ -67,10 +67,60 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("VALIDATION_ERROR", e.getMessage()));
     }
 
+    // CustomException 처리 추가
+    @ExceptionHandler(CustomException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) {
+        log.error("CustomException occurred: {}", e.getMessage(), e);
+
+        String detail = e.getDetail() != null ? e.getDetail() : e.getMessage();
+
+        return ResponseEntity.status(e.getErrorCode().getHttpStatus())
+                .body(ApiResponse.error(e.getErrorCode().getCode(), e.getErrorCode().getMessage(), detail));
+    }
+
+    // OpenAI API 관련 에러 처리 추가
+    @ExceptionHandler(org.springframework.web.client.HttpClientErrorException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpClientErrorException(
+            org.springframework.web.client.HttpClientErrorException e) {
+        log.error("OpenAI API client error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+
+        String errorCode = determineOpenAIErrorCode(e.getStatusCode().value());
+        String message = getOpenAIErrorMessage(e.getStatusCode().value());
+
+        return ResponseEntity.status(e.getStatusCode())
+                .body(ApiResponse.error(errorCode, message, e.getResponseBodyAsString()));
+    }
+
+    @ExceptionHandler(org.springframework.web.client.ResourceAccessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResourceAccessException(
+            org.springframework.web.client.ResourceAccessException e) {
+        log.error("Network connection error: {}", e.getMessage(), e);
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error("OPENAI_API_ERROR", "OpenAI API 연결에 실패했습니다.", e.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception e) {
         log.error("Unexpected error occurred", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다."));
+    }
+
+    // OpenAI API 에러 코드 결정 헬퍼 메서드
+    private String determineOpenAIErrorCode(int statusCode) {
+        return switch (statusCode) {
+            case 401 -> "OPENAI_SESSION_EXPIRED";
+            case 429 -> "OPENAI_QUOTA_EXCEEDED";
+            default -> "OPENAI_API_ERROR";
+        };
+    }
+
+    private String getOpenAIErrorMessage(int statusCode) {
+        return switch (statusCode) {
+            case 401 -> "OpenAI 세션이 만료되었습니다.";
+            case 429 -> "OpenAI API 사용량이 초과되었습니다.";
+            default -> "OpenAI API 호출에 실패했습니다.";
+        };
     }
 }
