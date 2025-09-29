@@ -58,15 +58,13 @@ public class RealtimeService {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", "gpt-4o-realtime-preview-2024-12-17");
 
-        Map<String, Object> modalities = Map.of("audio", true, "text", false);
-        requestBody.put("modalities", modalities);
+        // Realtime API expects an array of modality strings (e.g., ["audio"], ["text","audio"]) not a map
+        requestBody.put("modalities", java.util.List.of("audio"));
 
         requestBody.put("voice", voice);
         requestBody.put("instructions", instructions);
 
-        // 세션 메타데이터
-        Map<String, Object> metadata = Map.of("alarm_id", alarmId);
-        requestBody.put("metadata", metadata);
+        // Note: Realtime sessions API does not accept arbitrary 'metadata' field; omit to avoid 400
 
         // HTTP 헤더 설정
         HttpHeaders headers = new HttpHeaders();
