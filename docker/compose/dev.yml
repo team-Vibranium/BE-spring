@@ -3,8 +3,6 @@ services:
   app:
     image: ${DOCKER_REGISTRY:-}aningcall-backend:${VERSION:-latest}
     container_name: aningcall-app-dev
-    env_file:
-      - /srv/BE-spring/docker/compose/.env   # ← 반드시 명시
     environment:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_DATASOURCE_URL=${DB_URL?required}
@@ -15,6 +13,7 @@ services:
       - SPRING_REDIS_PASSWORD=${REDIS_PASSWORD:-devredis}
       - JWT_SECRET=${JWT_SECRET?required}
       - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+      - OPENAI_API_KEY=${OPENAI_API_KEY?required}
       - OPENAI_API_URL=${OPENAI_API_URL:-https://api.openai.com/v1/realtime/sessions}
       - SERVER_PORT=8080
       - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC
