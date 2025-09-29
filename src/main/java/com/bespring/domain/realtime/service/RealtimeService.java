@@ -49,19 +49,11 @@ public class RealtimeService {
         // 3. 스누즈 정보가 포함된 instructions 생성
         String finalInstructions = alarm.getInstructionsWithSnooze(resolvedSnooze);
 
-        // 4. OpenAI API 호출
-        try {
-            return callOpenAIRealtimeAPI(alarm.getVoice().getApiValue(), finalInstructions, alarmId);
-        } catch (Exception e) {
-            log.error("Failed to create OpenAI session for user {}, alarm {}: {}",
-                    userId, alarmId, e.getMessage());
-
-            // Fallback: Mock 응답
-            return createMockSession(alarmId);
-        }
+        // 4. OpenAI API 호출 (에러는 전역 예외 처리기로 위임)
+        return callOpenAIRealtimeAPI(alarm.getVoice().getApiValue(), finalInstructions, alarmId);
     }
 
-    private SessionResponse callOpenAIRealtimeAPI(String voice, String instructions, Long alarmId) throws Exception {
+    private SessionResponse callOpenAIRealtimeAPI(String voice, String instructions, Long alarmId) {
         // OpenAI Realtime API 요청 구성
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", "gpt-4o-realtime-preview-2024-12-17");
@@ -80,6 +72,7 @@ public class RealtimeService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(openaiApiKey);
+        headers.add("OpenAI-Beta", "realtime=v1");
 
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
@@ -91,8 +84,13 @@ public class RealtimeService {
                 String.class
         );
 
-        // 응답 파싱
-        JsonNode responseJson = objectMapper.readTree(response.getBody());
+        // 응답 파싱 (체크 예외는 런타임으로 래핑)
+        JsonNode responseJson;
+        try {
+            responseJson = objectMapper.readTree(response.getBody());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse OpenAI response", e);
+        }
 
         String ephemeralKey = responseJson.path("client_secret").path("value").asText();
         String sessionId = responseJson.path("id").asText();
@@ -114,14 +112,5 @@ public class RealtimeService {
         }
     }
 
-    // Mock 세션 생성 (OpenAI API 실패 시 Fallback)
-    private SessionResponse createMockSession(Long alarmId) {
-        String sessionId = "sess_mock_" + alarmId + "_" + System.currentTimeMillis();
-        String ephemeralKey = "eph_mock_" + sessionId.replace("-", "");
-        Long expiresIn = 900L; // 15분
-
-        log.warn("Using mock session for alarm {}: sessionId={}", alarmId, sessionId);
-
-        return new SessionResponse(ephemeralKey, sessionId, expiresIn);
-    }
+    // 과거: 실패 시 mock 세션을 반환했으나 현재는 예외를 전파하여 전역 예외 처리기로 응답합니다.
 }
