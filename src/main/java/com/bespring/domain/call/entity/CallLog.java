@@ -90,7 +90,7 @@ public class CallLog {
         }
 
         try {
-            ObjectMapper mapper = new ObjectMapper();
+            ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
             return mapper.readValue(conversationData, new TypeReference<List<Utterance>>() {});
         } catch (JsonProcessingException e) {
             log.error("Failed to parse conversation data for CallLog id: {}", id, e);
@@ -114,8 +114,7 @@ public class CallLog {
 
     private static String convertUtterancesToJson(List<Utterance> utterances) {
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
             return mapper.writeValueAsString(utterances);
         } catch (JsonProcessingException e) {
             log.error("Failed to convert utterances to JSON", e);

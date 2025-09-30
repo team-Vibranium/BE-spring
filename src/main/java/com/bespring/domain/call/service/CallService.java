@@ -70,7 +70,7 @@ public class CallService {
         // 대화 내용을 JSON으로 변환하여 저장 (기존 엔티티 업데이트)
         String conversationJson;
         try {
-            conversationJson = new ObjectMapper().writeValueAsString(request.getConversation());
+            conversationJson = new ObjectMapper().findAndRegisterModules().writeValueAsString(request.getConversation());
         } catch (JsonProcessingException e) {
             log.warn("Failed to serialize transcript for call {}: {}", callId, e.getMessage());
             conversationJson = "[]";
