@@ -64,13 +64,16 @@ public class StatisticsController {
     @GetMapping("/period")
     public ResponseEntity<ApiResponse<StatisticsService.PeriodStats>> getPeriodStats(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @Parameter(description = "시작 날짜 (YYYY-MM-DD)")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @Parameter(description = "종료 날짜 (YYYY-MM-DD)")
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+            @Parameter(description = "시작 일시 (ISO DateTime, 예: 2025-09-29T00:00:00.000)")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime startDate,
+            @Parameter(description = "종료 일시 (ISO DateTime, 예: 2025-09-29T23:59:59.999)")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime endDate) {
 
         Long userId = userPrincipal.getUserId();
-        StatisticsService.PeriodStats stats = statisticsService.getPeriodStats(userId, startDate, endDate);
+        // 서비스는 LocalDate를 받으므로 날짜로 변환
+        java.time.LocalDate start = startDate.toLocalDate();
+        java.time.LocalDate end = endDate.toLocalDate();
+        StatisticsService.PeriodStats stats = statisticsService.getPeriodStats(userId, start, end);
 
         return ResponseEntity.ok(ApiResponse.success(stats));
     }
