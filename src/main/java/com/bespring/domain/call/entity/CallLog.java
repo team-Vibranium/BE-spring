@@ -115,6 +115,7 @@ public class CallLog {
     private static String convertUtterancesToJson(List<Utterance> utterances) {
         try {
             ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
             return mapper.writeValueAsString(utterances);
         } catch (JsonProcessingException e) {
             log.error("Failed to convert utterances to JSON", e);
