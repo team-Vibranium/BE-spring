@@ -58,21 +58,27 @@ public class RealtimeService {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", "gpt-4o-realtime-preview-2024-12-17");
 
-        Map<String, Object> modalities = Map.of("audio", true, "text", false);
-        requestBody.put("modalities", modalities);
+        // Realtime API supports only ["text"] or ["audio","text"]
+        requestBody.put("modalities", java.util.List.of("audio", "text"));
 
         requestBody.put("voice", voice);
         requestBody.put("instructions", instructions);
 
-        // 세션 메타데이터
-        Map<String, Object> metadata = Map.of("alarm_id", alarmId);
-        requestBody.put("metadata", metadata);
+        // Note: Realtime sessions API does not accept arbitrary 'metadata' field; omit to avoid 400
 
         // HTTP 헤더 설정
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(openaiApiKey);
         headers.add("OpenAI-Beta", "realtime=v1");
+
+        // Debug: log request
+        try {
+            log.info("Calling OpenAI Realtime sessions API: {}", openaiApiUrl);
+            log.info("OpenAI request body: {}", objectMapper.writeValueAsString(requestBody));
+        } catch (Exception ignore) {
+            log.warn("Failed to serialize OpenAI request body for logging");
+        }
 
         HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 

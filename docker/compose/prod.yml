@@ -3,21 +3,24 @@ services:
   app:
     image: ${DOCKER_REGISTRY:-}aningcall-backend:${VERSION:-latest}
     container_name: aningcall-app-prod
+    env_file:
+      - ./.env
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=${DB_URL?required}
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME?required}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD?required}
-      - SPRING_REDIS_HOST=${REDIS_HOST:-redis}
-      - SPRING_REDIS_PORT=${REDIS_PORT:-6379}
-      - SPRING_REDIS_PASSWORD=${REDIS_PASSWORD?required}
-      - JWT_SECRET=${JWT_SECRET?required}
-      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
-      - OPENAI_API_KEY=${OPENAI_API_KEY?required}   # ← 추가
-      - OPENAI_API_URL=${OPENAI_API_URL:-https://api.openai.com/v1/realtime/sessions}
-      - SERVER_PORT=8080
-      - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC
-      - LOGGING_FILE_NAME=/app/logs/app.log
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: ${DB_URL?required}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME?required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD?required}
+      SPRING_REDIS_HOST: ${REDIS_HOST:-redis}
+      SPRING_REDIS_PORT: ${REDIS_PORT:-6379}
+      SPRING_REDIS_PASSWORD: ${REDIS_PASSWORD?required}
+      JWT_SECRET: ${JWT_SECRET?required}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY?required}   # ← 여기 .env 값 들어옴
+      OPENAI_API_URL: ${OPENAI_API_URL:-https://api.openai.com/v1/realtime/sessions}
+      SERVER_PORT: 8080
+      JAVA_TOOL_OPTIONS: -Xms512m -Xmx1024m -XX:+UseG1GC
+      LOGGING_FILE_NAME: /app/logs/app.log
+
     depends_on:
       redis:
         condition: service_healthy
